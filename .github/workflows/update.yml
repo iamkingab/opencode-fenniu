@@ -4,40 +4,46 @@ on:
   schedule:
     # 每周一检查更新
     - cron: '0 0 * * 1'
-  workflow_dispatch: # 手动触发
+  workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Check latest version
         id: check
         run: |
-          LATEST=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | jq -r .tag_name)
-          CURRENT=$(grep 'VERSION=' install.sh | head -1 | cut -d'"' -f2)
-          echo "latest=$LATEST" >> $GITHUB_OUTPUT
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          LATEST=$(curl -fsSL https://api.github.com/repos/anomalyco/opencode/releases/latest | jq -r .tag_name)
+          CURRENT=$(grep -E '^VERSION=' install.sh | head -1 | cut -d'"' -f2)
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           if [ "$LATEST" != "v$CURRENT" ]; then
-            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
           fi
-      
+
       - name: Update version
         if: steps.check.outputs.update_needed == 'true'
         run: |
-          NEW_VERSION=${LATEST#v}
-          sed -i "s/VERSION=\".*\"/VERSION=\"$NEW_VERSION\"/" install.sh
-      
+          NEW_VERSION='${{ steps.check.outputs.latest }}'
+          NEW_VERSION=${NEW_VERSION#v}
+          sed -i "s/^VERSION=".*"/VERSION="$NEW_VERSION"/" install.sh
+
       - name: Create Pull Request
         if: steps.check.outputs.update_needed == 'true'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "chore: update OpenCode to ${{ steps.check.outputs.latest }}"
           title: "⬆️ Update OpenCode to ${{ steps.check.outputs.latest }}"
           body: |
             自动检测到 OpenCode 新版本: ${{ steps.check.outputs.latest }}
-            
+
             更新日志: https://github.com/anomalyco/opencode/releases/tag/${{ steps.check.outputs.latest }}
+          branch: chore/update-opencode-${{ steps.check.outputs.latest }}
+          delete-branch: true
