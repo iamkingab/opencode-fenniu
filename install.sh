@@ -4,7 +4,7 @@ set -e
 # OpenCode 飞牛OS 一键安装脚本
 # 自动下载、安装、配置
 
-VERSION=1.17.9
+VERSION=1.17.11
 REPO="anomalyco/opencode"
 INSTALL_DIR="/opt/opencode"
 BIN_DIR="/usr/local/bin"
